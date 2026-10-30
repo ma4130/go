@@ -44,42 +44,131 @@ button.link { border: none; background: none; color: var(--main-dark); text-deco
   white-space: nowrap;
 }
 
-/* ---------- ゲーム画面 ---------- */
-body.game { overflow: hidden; }
+/* ---------- ゲーム画面（配置はポケモンGOと同じ、デザインはオリジナル） ---------- */
+body.game { overflow: hidden; background: #9fe0a0; }
+body.game.night { background: #24465c; }
 body.game #map { position: fixed; inset: 0; }
+body.game .maplibregl-ctrl-attrib { font-size: 10px; }
+body.game .maplibregl-ctrl-bottom-right { bottom: calc(env(safe-area-inset-bottom) + 112px); }
 
-.topbar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 500;
-  display: flex; align-items: center; gap: 8px;
-  padding: calc(env(safe-area-inset-top) + 8px) 12px 8px;
-  background: linear-gradient(rgba(255,255,255,.95), rgba(255,255,255,.75));
-  box-shadow: 0 1px 6px rgba(0,0,0,.08);
+.badge.corner { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 10px; z-index: 500; }
+
+.compass {
+  position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 12px; z-index: 500;
+  width: 48px; height: 48px; padding: 4px; border-radius: 50%;
+  background: rgba(30,45,60,.55); border: 2px solid rgba(255,255,255,.8); box-shadow: 0 2px 6px rgba(0,0,0,.25);
 }
-.topbar .title { font-weight: bold; font-size: 16px; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.topbar .icon-btn { margin-left: auto; }
-.icon-btn { padding: 6px 10px; font-size: 18px; border-radius: 12px; }
+.compass svg { width: 100%; height: 100%; display: block; }
 
 .banner {
-  position: fixed; top: calc(env(safe-area-inset-top) + 52px); left: 12px; right: 12px; z-index: 500;
+  position: fixed; top: calc(env(safe-area-inset-top) + 66px); left: 12px; right: 12px; z-index: 500;
   background: #fff8e1; border: 1px solid #ffd54f; border-radius: 10px; padding: 8px 12px; font-size: 14px;
 }
 
-.bottombar {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 500;
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 10px 14px calc(env(safe-area-inset-bottom) + 10px);
-  background: linear-gradient(rgba(255,255,255,.75), rgba(255,255,255,.95));
-  box-shadow: 0 -1px 6px rgba(0,0,0,.08);
+/* 左下：自分のアイコン */
+.avatar-btn {
+  position: fixed; left: 12px; bottom: calc(env(safe-area-inset-bottom) + 18px); z-index: 500;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: none; border: none; padding: 0;
 }
-.stat { display: flex; align-items: center; gap: 6px; font-size: 15px; min-width: 64px; }
-.stat b { font-size: 18px; }
-.main-btn { background: var(--main); color: #fff; border: none; font-weight: bold; font-size: 16px; padding: 12px 22px; border-radius: 999px; box-shadow: 0 3px 8px rgba(0,0,0,.2); }
+.avatar-face {
+  position: relative; display: block; width: 64px; height: 64px; border-radius: 50%; overflow: hidden;
+  background: #bfeff0; border: 3px solid #fff; box-shadow: 0 3px 8px rgba(0,0,0,.3);
+}
+.avatar-face .face { position: absolute; left: 50%; bottom: -10px; width: 44px; height: 50px; margin-left: -22px; border-radius: 50%; background: #ffd9b3; }
+.avatar-face .face::before, .avatar-face .face::after { content: ''; position: absolute; top: 20px; width: 5px; height: 7px; border-radius: 50%; background: #222; }
+.avatar-face .face::before { left: 13px; }
+.avatar-face .face::after { right: 13px; }
+.avatar-face .cap { position: absolute; z-index: 1; left: 50%; top: 6px; width: 48px; height: 24px; margin-left: -24px; border-radius: 24px 24px 4px 4px; background: #f2b705; }
+.avatar-face .cap::after { content: ''; position: absolute; left: 6px; right: -8px; bottom: -4px; height: 6px; border-radius: 4px; background: #e0a600; }
+.avatar-face.big { width: 72px; height: 72px; flex: 0 0 auto; }
+.avatar-lv { background: #fff; border-radius: 999px; padding: 1px 10px; font-size: 12px; font-weight: bold; box-shadow: 0 1px 4px rgba(0,0,0,.25); color: var(--text); }
+.avatar-lv b { margin-left: 2px; }
 
-.mini-ball {
-  display: inline-block; width: 20px; height: 20px; border-radius: 50%;
-  background: linear-gradient(#1fb5a5 0 45%, #f2b705 45% 55%, #fff 55%);
-  border: 1px solid rgba(0,0,0,.3);
+/* 下の真ん中：メインボタン（オリジナルデザインのボール） */
+.main-ball {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 22px); z-index: 500;
+  width: 72px; height: 72px; margin-left: -36px; padding: 0; border-radius: 50%;
+  background: linear-gradient(#1fb5a5 0 44%, #f2b705 44% 56%, #fff 56%);
+  border: 3px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,.35);
 }
+.main-ball span { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: #fff; border: 4px solid #f2b705; }
+.main-ball:active { transform: scale(.94); }
+
+/* 右下：近くのキャラ */
+.nearby {
+  position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 18px); z-index: 500;
+  width: 112px; padding: 6px 6px 4px; border-radius: 12px;
+  background: rgba(255,255,255,.92); border: none; box-shadow: 0 3px 8px rgba(0,0,0,.25);
+  display: flex; flex-direction: column; align-items: stretch;
+}
+.nearby-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; min-height: 60px; }
+.nearby-grid span { font-size: 22px; line-height: 30px; text-align: center; }
+.nearby-grid .none { grid-column: 1 / -1; color: var(--sub); font-size: 16px; }
+.nearby-label { font-size: 11px; color: var(--sub); text-align: center; border-top: 1px solid var(--line); padding-top: 3px; margin-top: 2px; }
+.nearby-list { list-style: none; margin: 0; padding: 0; }
+.nearby-list li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); }
+.nearby-list .emo { font-size: 26px; width: 34px; text-align: center; }
+.nearby-list .nm { flex: 1; }
+.nearby-list .dist { font-size: 13px; color: var(--sub); }
+.nearby-list li.ok .dist { color: var(--main-dark); font-weight: bold; }
+
+/* メニュー */
+.menu-modal { max-width: 360px; }
+.menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.menu-grid button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 4px; border-radius: 16px; font-weight: bold; }
+.menu-grid button span { font-size: 30px; }
+.menu-modal .modal-buttons { justify-content: center; }
+.menu-modal .modal-buttons button { width: 56px; height: 56px; border-radius: 50%; font-size: 22px; padding: 0; }
+.bag-list { list-style: none; padding: 0; margin: 0 0 8px; }
+.bag-list li { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.bag-list .nm { flex: 1; }
+.sub { color: var(--sub); font-size: 13px; }
+.profile-head { display: flex; gap: 14px; align-items: center; margin-bottom: 12px; }
+.profile-head > div { flex: 1; }
+.lv-big { font-size: 22px; font-weight: bold; }
+.xpbar { height: 10px; border-radius: 999px; background: #e3ecef; overflow: hidden; margin: 4px 0; }
+.xpbar span { display: block; height: 100%; background: var(--main); }
+
+/* 地図の上に立つキャラ */
+.spawn-pin { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.spawn-pin .spawn {
+  width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;
+  font-size: 40px; border: none; background: none; box-shadow: none; border-radius: 0;
+  filter: drop-shadow(0 3px 2px rgba(0,0,0,.35));
+  animation: bob 1.6s ease-in-out infinite;
+}
+.spawn-pin .spawn.r-rare { filter: drop-shadow(0 0 6px var(--rare)) drop-shadow(0 3px 2px rgba(0,0,0,.35)); }
+.spawn-pin .spawn.r-super { filter: drop-shadow(0 0 8px var(--super)) drop-shadow(0 3px 2px rgba(0,0,0,.35)); }
+.spawn-shadow { width: 30px; height: 8px; margin-top: -4px; border-radius: 50%; background: rgba(0,0,0,.25); }
+.spawn-pin.far { opacity: .55; }
+.spawn-pin.far .spawn { transform: scale(.8); }
+
+/* 地図の上に立つスポット（オリジナルデザインの塔） */
+.spot-pin { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.spot-cube {
+  width: 30px; height: 30px; border-radius: 6px; transform: rotate(45deg);
+  background: linear-gradient(135deg, #7fb6ff, #3f8cff); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  display: flex; align-items: center; justify-content: center;
+  animation: float 2.4s ease-in-out infinite;
+}
+.spot-cube span { width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+.spot-pole { width: 5px; height: 26px; margin-top: 4px; background: linear-gradient(#ffffff, #9cc3ff); border-radius: 3px; }
+.spot-base { width: 26px; height: 8px; border-radius: 50%; background: rgba(63,140,255,.45); }
+.spot-pin.used .spot-cube { background: linear-gradient(135deg, #d0a8ff, #a46bff); }
+.spot-pin.used .spot-base { background: rgba(164,107,255,.45); }
+.spot-pin.far { opacity: .75; }
+.spot-pin.spin .spot-cube { animation: spinCube .9s ease-out; }
+@keyframes float { 50% { transform: rotate(45deg) translate(-3px, -3px); } }
+@keyframes spinCube { from { transform: rotate(45deg); } to { transform: rotate(765deg); } }
+
+/* 軽い表示のときの自分キャラ */
+.avatar-2d { display: flex; flex-direction: column; align-items: center; }
+.avatar-2d-body {
+  width: 34px; height: 34px; border-radius: 50%; background: #1fb5a5; border: 4px solid #fff;
+  box-shadow: 0 0 0 8px rgba(31,181,165,.25), 0 2px 6px rgba(0,0,0,.3);
+}
+.avatar-2d.walking .avatar-2d-body { animation: bob .5s ease-in-out infinite; }
 
 /* 地図上のアイコン */
 .player-icon, .spawn-icon, .spot-icon { background: none; border: none; }
@@ -112,7 +201,7 @@ body.game #map { position: fixed; inset: 0; }
 
 /* ---------- トースト・モーダル ---------- */
 .toast {
-  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 84px); transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 120px); transform: translateX(-50%);
   z-index: 3000; max-width: calc(100% - 32px);
   background: rgba(20,30,40,.9); color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px;
   text-align: center; pointer-events: none;
