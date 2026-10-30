@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>管理画面 - ユーザー</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin">
+  <header class="admin-header">
+    <h1>管理画面</h1>
+    <span id="mode-badge" class="badge hidden">ローカル保存</span>
+    <nav><a href="admin.html" class="active">ユーザー</a><a href="spots.html">スポット</a><a href="index.html">ゲームへ</a></nav>
+  </header>
+
+  <main>
+    <div id="list-view">
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="名前で検索">
+        <span id="user-count"></span>
+        <button id="refresh-btn">更新</button>
+      </div>
+      <div class="table-wrap"><table id="user-table" class="list-table clickable"></table></div>
+    </div>
+
+    <div id="detail-view" class="hidden">
+      <button id="back-btn">← 一覧へ</button>
+      <div id="detail"></div>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

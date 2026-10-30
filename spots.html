@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="robots" content="noindex">
+  <title>スポット管理</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="spots-page">
+  <header class="admin-header">
+    <h1>スポット管理</h1>
+    <span id="mode-badge" class="badge hidden">ローカル保存</span>
+    <nav><a href="admin.html">ユーザー</a><a href="spots.html" class="active">スポット</a><a href="index.html">ゲームへ</a></nav>
+  </header>
+
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="spots-hint">地図をタップするとスポットを置けます</div>
+    <button id="here-btn" class="float-btn here">🎯 現在地</button>
+  </div>
+
+  <section id="spot-panel">
+    <button id="list-toggle">スポット一覧（<span id="spot-count">0こ</span>）</button>
+    <ul id="spot-list"></ul>
+  </section>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="js/spots.js"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// 友だち同士で遊ぶ前提の設定です。
+// ログインなしで、だれでも読み書きできます（管理画面もURLで開くだけのため）。
+// 一般公開するときは、ここを厳しくしてください。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{name} {
+      allow read, write: if true;
+
+      match /catches/{catchId} {
+        allow read, write: if true;
+      }
+    }
+
+    match /spots/{spotId} {
+      allow read: if true;
+      allow write: if request.resource == null
+        || (request.resource.data.name is string
+            && request.resource.data.lat is number
+            && request.resource.data.lng is number);
+    }
+
+    // それ以外は禁止
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
