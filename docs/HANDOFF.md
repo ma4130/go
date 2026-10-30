@@ -9,14 +9,14 @@ GitHubリポジトリ ma4130/go にある、ポケモンGO風の位置情報Web�
 ゲーム本体・管理画面・スポット管理画面はもうできていて、残りは Firebase と GitHub Pages の設定です。
 
 ## 今の状態
-- ブランチ claude/compassionate-heisenberg-oa9hds に全部のコードがあります（プルリクエストあり）。
+- ブランチ claude/compassionate-heisenberg-oa9hds に全部のコードがあります。リポジトリにはまだこのブランチしかなく、main ブランチはありません。
 - HTML/CSS/JavaScriptだけで、ビルドは不要です。
 - js/firebase-config.js が null のあいだは「ローカル保存モード」（ブラウザの中だけに保存）で動きます。
 - ここに Firebase の設定を貼ると、自動で Firestore を使うようになります（js/store-firebase.js、Firebase JS SDK 10.12.2 をCDNから読み込み）。
 - 詳しくは README.md を見てください。
 
 ## やってほしいこと（順番に、1つずつ説明しながら進めてください）
-1. プルリクエストを main にマージする（マージしてよいか、先に私に確認してください）
+1. claude/compassionate-heisenberg-oa9hds から main ブランチを作り、main をデフォルトブランチにする（作ってよいか、先に私に確認してください）
 2. Firebase プロジェクトを作る
    - 無料プラン（Spark）のまま。有料プラン（Blaze）にはしない
    - Google アナリティクスは不要
