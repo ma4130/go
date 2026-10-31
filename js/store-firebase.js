@@ -76,6 +76,26 @@ export async function createFirebaseStore(config) {
       await runBatched(ops);
     },
 
+    // ボールのプレゼント（受け取り待ちに足す。ゲームが受け取るとボールに加わる）
+    async giveBalls(name, n) {
+      await F.updateDoc(userRef(name), { giftBalls: F.increment(n) });
+    },
+    async giveBallsAll(n) {
+      const snap = await F.getDocs(F.collection(db, 'users'));
+      await runBatched(snap.docs.map((d) => (b) => b.update(d.ref, { giftBalls: F.increment(n) })));
+      return snap.size;
+    },
+    // 受け取り待ちのボールを受け取る（受け取った数を返し、受け取り待ちは0にする）
+    async claimGifts(name) {
+      return F.runTransaction(db, async (tx) => {
+        const ref = userRef(name);
+        const snap = await tx.get(ref);
+        const n = snap.exists() ? (snap.data().giftBalls || 0) : 0;
+        if (n > 0) tx.update(ref, { giftBalls: 0 });
+        return n;
+      });
+    },
+
     async addCatch(name, c) {
       const r = await F.addDoc(catchesCol(name), c);
       return r.id;

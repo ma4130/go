@@ -68,6 +68,7 @@ async function main() {
   updateHud();
   await loadSpots();
   startLocation();
+  claimGifts();
 
   setInterval(tick, 5000);
   setInterval(loadSpots, 120000);
@@ -532,7 +533,35 @@ function showProfile() {
   });
 }
 
+// 管理画面から届いたボールを受け取る
+let claiming = false;
+async function claimGifts() {
+  if (claiming || !user) return;
+  claiming = true;
+  try {
+    const n = await store.claimGifts(user.name);
+    if (n > 0) {
+      user.balls += n;
+      markDirty('balls');
+      updateHud();
+      await flush(true);
+      showModal({
+        title: '🎁 プレゼントが届いた！',
+        html: `<p class="gift-msg"><span class="mini-ball"></span> ボールを <b>${n}こ</b> もらったよ！</p>`,
+        buttons: [{ label: 'やったー！', value: true, primary: true }],
+      });
+    }
+  } catch (e) {
+    console.error(e);
+  } finally {
+    claiming = false;
+  }
+}
+
+let tickCount = 0;
 function tick() {
+  tickCount += 1;
+  if (tickCount % 6 === 0 && !capturing) claimGifts(); // 30秒ごと
   updateFastBanner();
   refreshSpawns();
   refreshSpotStyles();

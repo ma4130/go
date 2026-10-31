@@ -70,6 +70,30 @@ export function createLocalStore() {
       save(db);
     },
 
+    // ボールのプレゼント（受け取り待ちに足す。ゲームが受け取るとボールに加わる）
+    async giveBalls(name, n) {
+      const db = load();
+      const u = db.users[name];
+      if (!u) throw new Error('ユーザーが見つかりません');
+      u.giftBalls = (u.giftBalls || 0) + n;
+      save(db);
+    },
+    async giveBallsAll(n) {
+      const db = load();
+      const list = Object.values(db.users);
+      list.forEach((u) => { u.giftBalls = (u.giftBalls || 0) + n; });
+      save(db);
+      return list.length;
+    },
+    // 受け取り待ちのボールを受け取る（受け取った数を返し、受け取り待ちは0にする）
+    async claimGifts(name) {
+      const db = load();
+      const u = db.users[name];
+      const n = u?.giftBalls || 0;
+      if (n > 0) { u.giftBalls = 0; save(db); }
+      return n;
+    },
+
     async addCatch(name, c) {
       const db = load();
       const id = rid();
