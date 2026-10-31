@@ -391,6 +391,25 @@ body.spots-page #map { position: absolute; top: 0; left: 0; right: 0; bottom: 56
 #spot-list li { padding: 12px 16px; border-top: 1px solid var(--line); cursor: pointer; }
 #spot-list li.empty { color: var(--sub); cursor: default; }
 .spot-popup .actions { margin: 8px 0 4px; }
+/* スポット管理（ゲームと同じ地図） */
+body.spots-page .map-wrap { background: #b3eb78; }
+body.spots-page.night .map-wrap { background: #1f4a5e; }
+.spot-label {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 2px;
+  background: rgba(255,255,255,.92); color: var(--text); font-size: 11px; font-weight: 700;
+  padding: 1px 8px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  pointer-events: none;
+}
+.here-dot {
+  width: 20px; height: 20px; border-radius: 50%; background: #2f7bff; border: 3px solid #fff;
+  box-shadow: 0 0 0 8px rgba(47,123,255,.25), 0 2px 6px rgba(0,0,0,.3);
+}
+.mini-gem {
+  display: inline-block; width: 10px; height: 16px; margin-right: 8px; vertical-align: -2px;
+  clip-path: polygon(50% 0, 100% 38%, 50% 100%, 0 38%);
+  background: linear-gradient(160deg, #e6f3ff, #6aa8ff 45%, #2a5bd6);
+}
+body.spots-page .maplibregl-ctrl-top-left { top: 44px; }
 .spot-popup button { padding: 4px 10px; font-size: 13px; }
 
 /* ボタンを押したときの動き（全体） */
