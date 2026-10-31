@@ -29,9 +29,34 @@ async function main() {
   if (!isFirebaseConfigured()) $('mode-badge').classList.remove('hidden');
   $('search').addEventListener('input', renderList);
   $('refresh-btn').addEventListener('click', () => loadUsers());
+  $('give-all-btn').addEventListener('click', async () => {
+    if (!users.length) { toast('ユーザーがいません'); return; }
+    const n = await askBallCount(`全員（${users.length}人）にボールを配る`);
+    if (!n) return;
+    try {
+      const count = await store.giveBallsAll(n);
+      toast(`${count}人にボールを${n}こずつ送りました`);
+      await loadUsers();
+    } catch (e) { toast(e.message); }
+  });
   $('back-btn').addEventListener('click', () => { location.hash = ''; });
   window.addEventListener('hashchange', route);
   await loadUsers();
+}
+
+// 配るボールの数を聞く（1〜999）。やめたら 0
+async function askBallCount(title) {
+  const r = await showModal({
+    title,
+    html: '<p class="sub">ゲームを開いている人には30秒くらいで届きます。開いていない人は、次に開いたときに届きます。</p>',
+    input: {
+      value: '10',
+      maxlength: 3,
+      validate: (v) => (/^[0-9]+$/.test(v) && Number(v) >= 1 && Number(v) <= 999 ? null : '1〜999の数字を入れてください'),
+    },
+    buttons: [{ label: 'やめる', value: false }, { label: '配る', value: true, primary: true }],
+  });
+  return r.value ? Number(r.input) : 0;
 }
 
 async function loadUsers() {
@@ -149,7 +174,11 @@ async function showDetail(name) {
     </section>
     <section class="card">
       <h3>持っているアイテム</h3>
-      <table class="info-table"><tr><th>ボール</th><td>${u.balls ?? 0}こ</td></tr></table>
+      <table class="info-table">
+        <tr><th>ボール</th><td>${u.balls ?? 0}こ</td></tr>
+        <tr><th>受け取り待ち</th><td>${u.giftBalls || 0}こ <small class="sub">（ゲームを開くと受け取る）</small></td></tr>
+      </table>
+      <div class="actions" style="margin-top:8px"><button id="act-give" class="primary">🎁 ボールを配る</button></div>
     </section>
     <section class="card">
       <h3>地図（🔵最後にいた場所・キャラ＝捕まえた場所）</h3>
@@ -207,6 +236,15 @@ async function showDetail(name) {
   }));
 
   // 操作
+  $('act-give').addEventListener('click', async () => {
+    const n = await askBallCount(`「${u.name}」にボールを配る`);
+    if (!n) return;
+    try {
+      await store.giveBalls(u.name, n);
+      toast(`「${u.name}」にボールを${n}こ送りました`);
+      await loadUsers();
+    } catch (e) { toast(e.message); }
+  });
   $('act-rename').addEventListener('click', async () => {
     const r = await showModal({
       title: '名前を変える',

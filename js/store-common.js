@@ -7,6 +7,7 @@ export function newUserData(name, now = Date.now()) {
     createdAt: now,
     lastSeenAt: now,
     balls: START_BALLS,
+    giftBalls: 0,       // 管理画面から届いた、受け取り待ちのボール
     xp: 0,
     walkedM: 0,
     caughtCount: 0,
