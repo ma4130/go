@@ -26,8 +26,19 @@ async function main() {
   $('here-btn').addEventListener('click', goHere);
   $('list-toggle').addEventListener('click', () => $('spot-panel').classList.toggle('open'));
 
-  await loadSpots(true);
-  goHere(true);
+  // ゲーム画面のボタンから来たときは、その場所を中心に開く
+  const params = new URLSearchParams(location.search);
+  const lat = Number(params.get('lat'));
+  const lng = Number(params.get('lng'));
+  if (params.has('lat') && Number.isFinite(lat) && Number.isFinite(lng)) {
+    await loadSpots(false);
+    map.setView([lat, lng], 18);
+    L.circleMarker([lat, lng], { radius: 8, color: '#fff', weight: 3, fillColor: '#2f7bff', fillOpacity: 1 })
+      .bindTooltip('今いる場所').addTo(map);
+  } else {
+    await loadSpots(true);
+    goHere(true);
+  }
 }
 
 function goHere(silent) {

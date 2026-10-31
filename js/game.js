@@ -74,6 +74,13 @@ async function main() {
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush(true); });
   window.addEventListener('pagehide', () => flush(true));
 
+  // スポット追加画面へ。今いる場所を中心に開く
+  $('spot-add-btn').addEventListener('click', async (e) => {
+    e.preventDefault();
+    await flush(true);
+    const q = pos ? `?lat=${pos.lat.toFixed(6)}&lng=${pos.lng.toFixed(6)}` : '';
+    location.href = `spots.html${q}`;
+  });
   $('main-btn').addEventListener('click', showMainMenu);
   $('avatar-btn').addEventListener('click', showProfile);
   $('nearby-btn').addEventListener('click', showNearby);
