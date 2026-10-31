@@ -488,3 +488,40 @@ export async function createGameMap({ container, center, lite = false, onMapClic
     },
   };
 }
+
+// ---------- スポット管理などで使う、ゲームと同じ見た目の地図 ----------
+// ゲーム画面と違い、1本指で地図を動かせる（スポットを置く場所を探しやすいように）
+export async function createEditMap({ container, center, zoom = 17.5, pitch = 50 }) {
+  const night = isNight();
+  const pal = night ? PALETTE.night : PALETTE.day;
+  const map = new maplibregl.Map({
+    container,
+    style: STYLE_URL,
+    center: [center.lng, center.lat],
+    zoom,
+    pitch,
+    bearing: 0,
+    maxPitch: 70,
+    attributionControl: { compact: true },
+  });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
+  await new Promise((resolve) => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    map.once('load', finish);
+    map.on('error', (e) => console.warn('地図のエラー', e?.error?.message || e));
+    setTimeout(finish, 10000);
+  });
+  try { applyGameStyle(map, pal, false); } catch (e) { console.warn(e); }
+  document.body.classList.toggle('night', night);
+  return map;
+}
+
+// スポットの見た目（ゲーム画面と同じ浮かぶ結晶）
+export function createSpotElement() {
+  const el = document.createElement('div');
+  el.className = 'spot-pin';
+  el.innerHTML = `<div class="spot-crystal"><div class="spot-gem"><b></b><b></b></div></div>
+    <div class="spot-sparkle"><i></i><i></i><i></i></div><div class="spot-base"></div>`;
+  return el;
+}
