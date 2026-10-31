@@ -199,12 +199,21 @@ class CaptureScene {
     if (this.state !== 'aim') return;
     const end = this.point(e);
     this.points.push(end);
-    const recent = this.points.filter((q) => end.t - q.t <= 100);
-    const first = recent.length >= 2 ? recent[0] : this.points[Math.max(0, this.points.length - 2)];
-    const dt = Math.max(16, end.t - first.t) / 1000;
-    const vx = (end.x - first.x) / dt;
-    const vy = (end.y - first.y) / dt;
-    if (vy > -400 || this.points.length < 2) {
+    // 指を上に動かし始めたところ（最大300ミリ秒前まで）から、離したところまでを「投げた動き」とみる
+    let i = this.points.length - 1;
+    while (i > 0) {
+      const cur = this.points[i];
+      const prev = this.points[i - 1];
+      if (end.t - prev.t > 300) break;
+      if (prev.y < cur.y - 2) break; // 下に動いていたところで止める
+      i -= 1;
+    }
+    const start = this.points[i];
+    const dt = Math.max(30, end.t - start.t) / 1000;
+    const dirX = end.x - start.x;
+    const dirY = end.y - start.y;
+    const vy = dirY / dt; // 平均の速さ（瞬間の速さより安定する）
+    if (dirY > -30 || vy > -200) {
       // 上に投げていない → 元に戻す（カーブは保つ）
       const { curve, spinDir } = this.ball;
       this.state = 'idle';
@@ -213,30 +222,45 @@ class CaptureScene {
       this.ball.spinDir = spinDir;
       return;
     }
-    this.throwBall(end, vx, vy);
+    this.throwBall(end, vy, dirX / -dirY);
   }
 
-  // 投げる。vx,vy は指の速さ（px/秒）
-  throwBall(p, vx, vy) {
+  // 投げる。
+  //   左右：スワイプの向きをまっすぐ延ばした先に飛ぶ（ポケモンGOと同じ感覚）
+  //   奥行き：スワイプの速さ。ちょうどいい速さの 0.4〜2.6倍ならキャラの高さに届く（幅を広めに）
+  //   カーブ：時計回りなら右、反時計回りなら左に曲がる。逆側に投げると真ん中に来る
+  throwBall(p, vy, slope) {
     this.useBall();
     this.updateBalls();
     this.hintEl.classList.add('hidden');
     const now = performance.now();
-    const up = clamp(-vy, 0, 6000);
-    const k = (this.restY - this.cy) / 2200; // 秒速2200pxで、置き場所からキャラの真ん中に届く
-    const landY = p.y - up * k;
-    const straightX = p.x + clamp(vx, -3000, 3000) * k;
-    const drift = this.ball.curve ? this.ball.spinDir * this.R * 1.3 : 0;
-    this.flight = { x0: p.x, y0: p.y, sx: straightX, landY, drift, start: now, dur: 700, arc: 70 + up * 0.03 };
+    const dist = Math.max(60, p.y - this.cy); // 投げた場所からキャラまでの縦の距離(px)
+    // ちょうど届く速さ(px/秒)は、ボールの置き場所からキャラまでの距離で決める（指を離した位置によらない）
+    const ideal = Math.max(60, this.restY - this.cy) * THROW.idealSpeedPerPx;
+    const power = clamp(-vy, 0, 9000) / ideal; // 1 = ちょうど
+    // 横のずれは少しだけ真ん中に寄せる（親指のスワイプは斜めになりやすいため）
+    const landXStraight = p.x + clamp(slope, -1.5, 1.5) * THROW.aimAssist * dist;
+    // 強さは「何倍か」で見る（2倍強いのと半分弱いのが同じくらいのずれになる）
+    const lp = Math.log(Math.max(power, 0.05));
+    const landY = lp >= 0
+      ? this.cy - (lp / Math.log(THROW.powerMax)) * this.R * 1.3
+      : this.cy + (lp / Math.log(THROW.powerMin)) * this.R * 1.3;
+    const drift = this.ball.curve ? this.ball.spinDir * this.R * THROW.curveDrift : 0;
+    this.flight = {
+      x0: p.x, y0: p.y, sx: landXStraight, landY, drift, start: now,
+      dur: clamp(650 / Math.sqrt(Math.max(power, 0.3)), 450, 950),
+      arc: 50 + dist * 0.25,
+    };
+    this.lastPower = power;
     this.state = 'flying';
     this.ball.mode = 'fly';
   }
 
-  // 動作確認用: power=指の速さ(上向き), dx=横の速さ, curve=-1/0/1
-  testThrow({ power = 2200, dx = 0, curve = 0 } = {}) {
+  // 動作確認用: power=強さ(1=ちょうど), slope=左右の向き(0=まっすぐ), curve=-1/0/1
+  testThrow({ power = 1, slope = 0, curve = 0 } = {}) {
     if (this.state !== 'idle' || this.getBalls() <= 0) return false;
     if (curve) { this.ball.curve = true; this.ball.spinDir = Math.sign(curve); }
-    this.throwBall({ x: this.restX, y: this.restY }, dx, -power);
+    this.throwBall({ x: this.restX, y: this.restY }, -power * Math.max(60, this.restY - this.cy) * THROW.idealSpeedPerPx, slope);
     return true;
   }
 
