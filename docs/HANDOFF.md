@@ -11,6 +11,7 @@ GitHubリポジトリ ma4130/go にある、ポケモンGO風の位置情報Web�
 ## 今の状態
 - ブランチ claude/compassionate-heisenberg-oa9hds に全部のコードがあります。リポジトリにはまだこのブランチしかなく、main ブランチはありません。
 - HTML/CSS/JavaScriptだけで、ビルドは不要です。
+- ゲームの地図は MapLibre GL JS ＋ OpenFreeMap（無料・APIキー不要）の斜めの3D地図、自分のキャラは three.js の3Dモデルです。
 - js/firebase-config.js が null のあいだは「ローカル保存モード」（ブラウザの中だけに保存）で動きます。
 - ここに Firebase の設定を貼ると、自動で Firestore を使うようになります（js/store-firebase.js、Firebase JS SDK 10.12.2 をCDNから読み込み）。
 - 詳しくは README.md を見てください。
@@ -32,6 +33,7 @@ GitHubリポジトリ ma4130/go にある、ポケモンGO風の位置情報Web�
    - ゲーム：/ 、管理画面：/admin.html 、スポット管理：/spots.html
    - スポット管理で、私の家の近くにスポットをいくつか置く手伝いをしてほしい
 8. 必要なら、Firebase の承認済みドメインに ma4130.github.io を追加する
+9. スマホで、斜めの3D地図・自分の3Dキャラ・キャラの捕獲がちゃんと動くか一緒に確認する（重い場合は、設定の「軽い表示」を試す）
 
 ## 私の好み
 - 手順は1つずつ説明してください

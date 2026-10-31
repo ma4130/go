@@ -5,27 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#1fb5a5">
   <title>あるいてモンスター（仮）</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="game">
   <div id="map"></div>
 
-  <header class="topbar">
-    <span id="game-title" class="title"></span>
-    <span id="mode-badge" class="badge hidden"></span>
-    <button id="menu-btn" class="icon-btn" aria-label="メニュー">⚙️</button>
-  </header>
+  <!-- 左上：モード表示 -->
+  <span id="mode-badge" class="badge corner hidden"></span>
+
+  <!-- 右上：コンパス -->
+  <button id="compass-btn" class="compass" aria-label="方角">
+    <svg viewBox="0 0 40 40" aria-hidden="true">
+      <g id="compass-needle">
+        <polygon points="20,5 25,20 15,20" fill="#ff5a4e"/>
+        <polygon points="20,35 25,20 15,20" fill="#ffffff"/>
+      </g>
+    </svg>
+  </button>
+
   <div id="banner" class="banner hidden"></div>
 
-  <footer class="bottombar">
-    <div class="stat"><span class="mini-ball"></span><b id="ball-count">0</b></div>
-    <button id="dex-btn" class="main-btn">📖 ずかん</button>
-    <div class="stat">Lv <b id="level">1</b></div>
-    <button id="recenter-btn" class="icon-btn" aria-label="現在地へ">🎯</button>
-  </footer>
+  <!-- 左下：自分のアイコン -->
+  <button id="avatar-btn" class="avatar-btn" aria-label="プロフィール">
+    <span class="avatar-face"><span class="cap"></span><span class="face"></span></span>
+    <span class="avatar-lv">Lv<b id="level">1</b></span>
+  </button>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- 下の真ん中：メインボタン -->
+  <button id="main-btn" class="main-ball" aria-label="メニュー"><span></span></button>
+
+  <!-- 右下：近くのキャラ -->
+  <button id="nearby-btn" class="nearby" aria-label="近くにいるキャラ">
+    <span id="nearby-grid" class="nearby-grid"></span>
+    <span class="nearby-label">近くにいる</span>
+  </button>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script type="module" src="js/game.js"></script>
 </body>
 </html>

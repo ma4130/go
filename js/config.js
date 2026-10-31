@@ -11,6 +11,7 @@ export const SPAWN = {
   windowMin: 15,      // 何分ごとに出現が入れ替わるか
   viewRadiusM: 200,   // 自分の周り何mのキャラを表示するか
   catchRadiusM: 50,   // 何m以内なら捕まえられるか
+  revealRadiusM: 110, // これより遠いキャラは草むらが揺れるだけ（姿は見えない）
   chanceOne: 0.5,     // 1マスに1匹出る確率
   chanceTwo: 0.08,    // 1マスに2匹出る確率
 };

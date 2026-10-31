@@ -20,12 +20,13 @@ export function toast(msg, ms = 2500) {
 
 // buttons: [{ label, value, primary }]
 // 戻り値: 押されたボタンの value（input があれば { value, input }）
-export function showModal({ title = '', html = '', buttons = [{ label: 'OK', value: true, primary: true }], input = null }) {
+// onOpen(el, close): 中身のボタンなどに自分で動きをつけたいとき / className: モーダルに付ける追加のクラス
+export function showModal({ title = '', html = '', buttons = [{ label: 'OK', value: true, primary: true }], input = null, onOpen = null, className = '' }) {
   return new Promise((resolve) => {
     const back = document.createElement('div');
     back.className = 'modal-back';
     back.innerHTML = `
-      <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal ${className}" role="dialog" aria-modal="true">
         ${title ? `<h2>${escapeHtml(title)}</h2>` : ''}
         <div class="modal-body">${html}</div>
         ${input ? `<input class="modal-input" type="text" maxlength="${input.maxlength || 40}" placeholder="${escapeHtml(input.placeholder || '')}" value="${escapeHtml(input.value || '')}">
@@ -50,6 +51,9 @@ export function showModal({ title = '', html = '', buttons = [{ label: 'OK', val
     back.querySelectorAll('.modal-buttons button').forEach((btn) => {
       btn.addEventListener('click', () => finish(buttons[Number(btn.dataset.i)]));
     });
+    if (onOpen) {
+      onOpen(back, (value) => { back.remove(); resolve(value); });
+    }
     if (inp) {
       inp.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {

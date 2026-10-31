@@ -1,4 +1,4 @@
-// ゲーム本体（地図画面）
+// ゲーム本体（斜めの3D地図の画面）
 
 import { GAME_NAME, SPAWN, SPOT, SPEED_LIMIT_MS, DEFAULT_CENTER, XP } from './config.js';
 import { getStore, isFirebaseConfigured } from './store.js';
@@ -7,35 +7,36 @@ import { CHARACTERS, getChar } from './characters.js';
 import { distanceM, levelFromXp, formatDistance, escapeHtml, randInt, ls } from './util.js';
 import { validateName } from './store-common.js';
 import { openCapture } from './capture.js';
+import { createGameMap } from './map3d.js';
 import { showModal, confirmModal, toast } from './ui.js';
 
 const params = new URLSearchParams(location.search);
 const DEBUG = params.has('debug');
 const NAME_KEY = 'arukemon_name';
 const WARN_KEY = 'arukemon_warned';
+const LITE_KEY = 'arukemon_lite';
 
 let store;
 let user;
-let map;
-let playerMarker;
-let catchCircle;
+let gm; // 地図
 let pos = null;
 let lastFix = null;
-let follow = true;
+let heading = 0;
 let tooFast = false;
 let tooFastUntil = 0;
 let capturing = false;
 let spots = [];
+let nearby = [];
 const spawnMarkers = new Map();
 const spotMarkers = new Map();
 const dirty = new Set();
 let lastSave = 0;
 
 const $ = (id) => document.getElementById(id);
+const isLite = () => ls.get(LITE_KEY) === '1';
 
 // ---------- はじまり ----------
 async function main() {
-  $('game-title').textContent = GAME_NAME;
   document.title = GAME_NAME;
   store = await getStore();
 
@@ -54,7 +55,16 @@ async function main() {
   user = await login();
   normalizeUser();
 
-  initMap();
+  const start = user.lastLat != null ? { lat: user.lastLat, lng: user.lastLng } : DEFAULT_CENTER;
+  gm = await createGameMap({
+    container: 'map',
+    center: start,
+    lite: isLite(),
+    onMapClick: DEBUG ? (lat, lng) => handlePosition(lat, lng, 5, null, true) : null,
+  });
+  gm.setRangeRadius(SPAWN.catchRadiusM);
+  gm.onRotate((b) => { $('compass-needle').setAttribute('transform', `rotate(${-b} 20 20)`); });
+
   updateHud();
   await loadSpots();
   startLocation();
@@ -64,11 +74,12 @@ async function main() {
   document.addEventListener('visibilitychange', () => { if (document.hidden) flush(true); });
   window.addEventListener('pagehide', () => flush(true));
 
-  $('dex-btn').addEventListener('click', showDex);
-  $('menu-btn').addEventListener('click', showMenu);
-  $('recenter-btn').addEventListener('click', () => {
-    follow = true;
-    if (pos) map.setView([pos.lat, pos.lng], Math.max(map.getZoom(), 17));
+  $('main-btn').addEventListener('click', showMainMenu);
+  $('avatar-btn').addEventListener('click', showProfile);
+  $('nearby-btn').addEventListener('click', showNearby);
+  $('compass-btn').addEventListener('click', () => {
+    const mode = gm.toggleCompass();
+    toast(mode === 'heading' ? '進む方向が上になります' : '北が上になります', 1500);
   });
 }
 
@@ -130,8 +141,7 @@ function normalizeUser() {
   user.dex ||= {};
   user.spotCooldowns ||= {};
   user.recentSpawns ||= {};
-  // 1時間より古い記録は消す
-  const limit = Date.now() - 60 * 60000;
+  const limit = Date.now() - 60 * 60000; // 1時間より古い記録は消す
   for (const [k, t] of Object.entries(user.recentSpawns)) if (t < limit) delete user.recentSpawns[k];
 }
 
@@ -153,32 +163,7 @@ async function flush(force = false) {
   }
 }
 
-// ---------- 地図 ----------
-function initMap() {
-  const start = user.lastLat != null ? { lat: user.lastLat, lng: user.lastLng } : DEFAULT_CENTER;
-  map = L.map('map', { zoomControl: false }).setView([start.lat, start.lng], 18);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  }).addTo(map);
-
-  playerMarker = L.marker([start.lat, start.lng], {
-    icon: L.divIcon({ className: 'player-icon', html: '<div class="player-dot"></div>', iconSize: [28, 28] }),
-    zIndexOffset: 1000,
-    interactive: false,
-  }).addTo(map);
-  catchCircle = L.circle([start.lat, start.lng], {
-    radius: SPAWN.catchRadiusM, color: '#1fb5a5', weight: 2, dashArray: '6 6', fillOpacity: 0.06, interactive: false,
-  }).addTo(map);
-
-  map.on('dragstart', () => { follow = false; });
-  if (DEBUG) {
-    map.on('click', (e) => handlePosition(e.latlng.lat, e.latlng.lng, 5, null, true));
-  }
-}
-
 function updateHud() {
-  $('ball-count').textContent = user.balls;
   $('level').textContent = levelFromXp(user.xp);
 }
 
@@ -203,7 +188,7 @@ function startLocation() {
   showBanner('位置情報を取得中…');
   navigator.geolocation.watchPosition(
     (p) => {
-      hideBanner();
+      if ($('banner').dataset.kind === 'info') hideBanner();
       handlePosition(p.coords.latitude, p.coords.longitude, p.coords.accuracy, p.coords.speed, false);
     },
     (err) => {
@@ -212,6 +197,13 @@ function startLocation() {
     },
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
   );
+}
+
+function bearingDeg(a, b) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat));
+  const x = Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) - Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
 function handlePosition(lat, lng, accuracy, speed, teleport) {
@@ -228,6 +220,7 @@ function handlePosition(lat, lng, accuracy, speed, teleport) {
       user.walkedM = (user.walkedM || 0) + d;
       markDirty('walkedM');
     }
+    if (d >= 3) heading = bearingDeg(lastFix, here);
   } else if (teleport) {
     tooFast = false;
     tooFastUntil = 0;
@@ -239,11 +232,7 @@ function handlePosition(lat, lng, accuracy, speed, teleport) {
   markDirty('lastLat', 'lastLng');
 
   updateFastBanner();
-
-  playerMarker.setLatLng([lat, lng]);
-  catchCircle.setLatLng([lat, lng]);
-  if (follow) map.setView([lat, lng], map.getZoom(), { animate: !teleport });
-
+  gm.setPlayer(here, { heading, teleport });
   refreshSpawns();
   refreshSpotStyles();
 }
@@ -279,15 +268,53 @@ function refreshSpawns() {
     let m = spawnMarkers.get(s.id);
     if (!m) {
       const c = getChar(s.charId);
-      m = L.marker([s.lat, s.lng], {
-        icon: L.divIcon({ className: 'spawn-icon', html: `<div class="spawn r-${c.rarity}">${c.emoji}</div>`, iconSize: [44, 44] }),
-      }).addTo(map);
-      m.on('click', () => onSpawnClick(s));
+      const el = document.createElement('div');
+      el.className = 'spawn-pin';
+      el.innerHTML = `<div class="spawn r-${c.rarity}">${c.emoji}</div>
+        <div class="rustle"><i></i><i></i><i></i><i></i><i></i></div><div class="spawn-shadow"></div>`;
+      el.addEventListener('click', (e) => { e.stopPropagation(); onSpawnClick(s); });
+      m = gm.addMarker({ el, lat: s.lat, lng: s.lng });
       spawnMarkers.set(s.id, m);
     }
-    const far = distanceM(pos, s) > SPAWN.catchRadiusM;
-    m.getElement()?.classList.toggle('far', far);
+    const el = m.getElement();
+    const d = distanceM(pos, s);
+    el.classList.toggle('far', d > SPAWN.catchRadiusM);
+    // 遠いキャラは草むらがカサカサ揺れるだけ。近づくと飛び出して姿が見える
+    const hidden = d > SPAWN.revealRadiusM;
+    if (el.classList.contains('hidden-mon') && !hidden) {
+      el.classList.add('pop');
+      setTimeout(() => el.classList.remove('pop'), 700);
+    }
+    el.classList.toggle('hidden-mon', hidden);
   }
+  nearby = list.map((s) => ({ ...s, d: distanceM(pos, s) })).sort((a, b) => a.d - b.d);
+  renderNearby();
+}
+
+function renderNearby() {
+  const top = nearby.slice(0, 6);
+  $('nearby-grid').innerHTML = top.length
+    ? top.map((s) => {
+      const c = getChar(s.charId);
+      return `<span class="${user.dex[c.id] ? '' : 'unknown'}">${c.emoji}</span>`;
+    }).join('')
+    : '<span class="none">…</span>';
+}
+
+function showNearby() {
+  const rows = nearby.map((s) => {
+    const c = getChar(s.charId);
+    const caught = !!user.dex[c.id];
+    const ok = s.d <= SPAWN.catchRadiusM;
+    return `<li class="${ok ? 'ok' : ''}"><span class="emo">${caught ? c.emoji : '❔'}</span>
+      <span class="nm">${caught ? escapeHtml(c.name) : '？？？'}</span>
+      <span class="dist">${ok ? '捕まえられる！' : `あと${Math.ceil(s.d - SPAWN.catchRadiusM)}m`}</span></li>`;
+  }).join('');
+  showModal({
+    title: '近くにいるキャラ',
+    html: rows ? `<ul class="nearby-list">${rows}</ul>` : '<p>近くにはいないみたい。歩いてみよう！</p>',
+    buttons: [{ label: 'とじる', value: true, primary: true }],
+  });
 }
 
 async function onSpawnClick(s) {
@@ -347,13 +374,15 @@ async function loadSpots() {
   for (const s of spots) {
     let m = spotMarkers.get(s.id);
     if (!m) {
-      m = L.marker([s.lat, s.lng], {
-        icon: L.divIcon({ className: 'spot-icon', html: '<div class="spot"><span></span></div>', iconSize: [36, 36] }),
-      }).addTo(map);
-      m.on('click', () => onSpotClick(s.id));
+      const el = document.createElement('div');
+      el.className = 'spot-pin';
+      el.innerHTML = `<div class="spot-crystal"><div class="spot-gem"><b></b><b></b></div></div>
+        <div class="spot-sparkle"><i></i><i></i><i></i></div><div class="spot-base"></div>`;
+      el.addEventListener('click', (e) => { e.stopPropagation(); onSpotClick(s.id); });
+      m = gm.addMarker({ el, lat: s.lat, lng: s.lng });
       spotMarkers.set(s.id, m);
     } else {
-      m.setLatLng([s.lat, s.lng]);
+      m.setLngLat([s.lng, s.lat]);
     }
   }
   refreshSpotStyles();
@@ -368,9 +397,11 @@ function spotRemainMs(id) {
 function refreshSpotStyles() {
   for (const [id, m] of spotMarkers) {
     const el = m.getElement();
-    if (!el) continue;
+    const ll = m.getLngLat();
+    const far = !pos || distanceM(pos, { lat: ll.lat, lng: ll.lng }) > SPOT.useRadiusM;
     el.classList.toggle('used', spotRemainMs(id) > 0);
-    el.classList.toggle('far', !pos || distanceM(pos, m.getLatLng()) > SPOT.useRadiusM);
+    el.classList.toggle('far', far);
+    el.classList.toggle('near', !far); // 近いと色が変わって速く回る
   }
 }
 
@@ -397,13 +428,32 @@ async function onSpotClick(id) {
   markDirty('balls', 'xp', 'spotCooldowns');
   updateHud();
   refreshSpotStyles();
-  spotMarkers.get(id)?.getElement()?.classList.add('spin');
-  setTimeout(() => spotMarkers.get(id)?.getElement()?.classList.remove('spin'), 800);
+  const el = spotMarkers.get(id)?.getElement();
+  el?.classList.add('spin');
+  setTimeout(() => el?.classList.remove('spin'), 900);
   toast(`${s.name}：ボールを${gain}こ手に入れた！ +${XP.spot}XP`);
   await flush(true);
 }
 
-// ---------- 図鑑・メニュー ----------
+// ---------- メニュー ----------
+async function showMainMenu() {
+  const r = await showModal({
+    html: `<div class="menu-grid">
+      <button data-v="dex"><span>📖</span>ずかん</button>
+      <button data-v="bag"><span>🎒</span>バッグ</button>
+      <button data-v="settings"><span>⚙️</span>せってい</button>
+    </div>`,
+    buttons: [{ label: '×', value: 'close' }],
+    onOpen: (el, close) => {
+      el.querySelectorAll('.menu-grid button').forEach((b) => b.addEventListener('click', () => close(b.dataset.v)));
+    },
+    className: 'menu-modal',
+  });
+  if (r === 'dex') showDex();
+  if (r === 'bag') showBag();
+  if (r === 'settings') showSettings();
+}
+
 function showDex() {
   const got = CHARACTERS.filter((c) => user.dex[c.id]).length;
   const cells = CHARACTERS.map((c, i) => {
@@ -419,21 +469,32 @@ function showDex() {
   });
 }
 
-async function showMenu() {
+function showBag() {
+  showModal({
+    title: 'バッグ',
+    html: `<ul class="bag-list"><li><span class="mini-ball"></span><span class="nm">ボール</span><b>×${user.balls}</b></li></ul>
+      <p class="sub">スポットに行くとボールがもらえるよ</p>`,
+    buttons: [{ label: 'とじる', value: true, primary: true }],
+  });
+}
+
+async function showSettings() {
+  const lite = isLite();
   const r = await showModal({
-    title: user.name,
-    html: `<table class="info-table">
-      <tr><th>レベル</th><td>${levelFromXp(user.xp)}（${user.xp || 0} XP）</td></tr>
-      <tr><th>ボール</th><td>${user.balls}こ</td></tr>
-      <tr><th>捕まえた数</th><td>${user.caughtCount || 0}匹</td></tr>
-      <tr><th>歩いた距離</th><td>${formatDistance(user.walkedM)}</td></tr>
-    </table>`,
+    title: 'せってい',
+    html: `<p>軽い表示：<b>${lite ? 'オン' : 'オフ'}</b><br><small>オンにすると地図を傾けず、建物や3Dキャラを出しません。電池の減りや発熱が気になるとき、動きがカクカクするときに。</small></p>`,
     buttons: [
-      { label: 'ログアウト', value: 'logout' },
+      { label: lite ? '軽い表示をオフにする' : '軽い表示をオンにする', value: 'lite' },
       { label: '注意を見る', value: 'warn' },
+      { label: 'ログアウト', value: 'logout' },
       { label: 'とじる', value: 'close', primary: true },
     ],
   });
+  if (r === 'lite') {
+    ls.set(LITE_KEY, lite ? '0' : '1');
+    await flush(true);
+    location.reload();
+  }
   if (r === 'warn') showWarning();
   if (r === 'logout') {
     const ok = await confirmModal('ログアウトする？\n同じ名前を入れればまた続きから遊べるよ');
@@ -443,6 +504,25 @@ async function showMenu() {
       location.reload();
     }
   }
+}
+
+function showProfile() {
+  const lv = levelFromXp(user.xp);
+  const cur = 250 * (lv - 1) ** 2;
+  const next = 250 * lv ** 2;
+  const pct = Math.min(100, Math.round((((user.xp || 0) - cur) / (next - cur)) * 100));
+  showModal({
+    title: user.name,
+    html: `<div class="profile-head"><span class="avatar-face big"><span class="cap"></span><span class="face"></span></span>
+        <div><div class="lv-big">Lv ${lv}</div><div class="xpbar"><span style="width:${pct}%"></span></div><small>${user.xp || 0} / ${next} XP</small></div></div>
+      <table class="info-table">
+        <tr><th>捕まえた数</th><td>${user.caughtCount || 0}匹</td></tr>
+        <tr><th>ずかん</th><td>${Object.keys(user.dex).length} / ${CHARACTERS.length}</td></tr>
+        <tr><th>歩いた距離</th><td>${formatDistance(user.walkedM)}</td></tr>
+        <tr><th>ボール</th><td>${user.balls}こ</td></tr>
+      </table>`,
+    buttons: [{ label: 'とじる', value: true, primary: true }],
+  });
 }
 
 function tick() {
