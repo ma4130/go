@@ -270,12 +270,22 @@ function refreshSpawns() {
       const c = getChar(s.charId);
       const el = document.createElement('div');
       el.className = 'spawn-pin';
-      el.innerHTML = `<div class="spawn r-${c.rarity}">${c.emoji}</div><div class="spawn-shadow"></div>`;
+      el.innerHTML = `<div class="spawn r-${c.rarity}">${c.emoji}</div>
+        <div class="rustle"><i></i><i></i><i></i><i></i><i></i></div><div class="spawn-shadow"></div>`;
       el.addEventListener('click', (e) => { e.stopPropagation(); onSpawnClick(s); });
       m = gm.addMarker({ el, lat: s.lat, lng: s.lng });
       spawnMarkers.set(s.id, m);
     }
-    m.getElement().classList.toggle('far', distanceM(pos, s) > SPAWN.catchRadiusM);
+    const el = m.getElement();
+    const d = distanceM(pos, s);
+    el.classList.toggle('far', d > SPAWN.catchRadiusM);
+    // 遠いキャラは草むらがカサカサ揺れるだけ。近づくと飛び出して姿が見える
+    const hidden = d > SPAWN.revealRadiusM;
+    if (el.classList.contains('hidden-mon') && !hidden) {
+      el.classList.add('pop');
+      setTimeout(() => el.classList.remove('pop'), 700);
+    }
+    el.classList.toggle('hidden-mon', hidden);
   }
   nearby = list.map((s) => ({ ...s, d: distanceM(pos, s) })).sort((a, b) => a.d - b.d);
   renderNearby();
@@ -284,7 +294,10 @@ function refreshSpawns() {
 function renderNearby() {
   const top = nearby.slice(0, 6);
   $('nearby-grid').innerHTML = top.length
-    ? top.map((s) => `<span>${getChar(s.charId).emoji}</span>`).join('')
+    ? top.map((s) => {
+      const c = getChar(s.charId);
+      return `<span class="${user.dex[c.id] ? '' : 'unknown'}">${c.emoji}</span>`;
+    }).join('')
     : '<span class="none">…</span>';
 }
 
@@ -363,7 +376,8 @@ async function loadSpots() {
     if (!m) {
       const el = document.createElement('div');
       el.className = 'spot-pin';
-      el.innerHTML = '<div class="spot-cube"><span></span></div><div class="spot-pole"></div><div class="spot-base"></div>';
+      el.innerHTML = `<div class="spot-crystal"><div class="spot-gem"><b></b><b></b></div></div>
+        <div class="spot-sparkle"><i></i><i></i><i></i></div><div class="spot-base"></div>`;
       el.addEventListener('click', (e) => { e.stopPropagation(); onSpotClick(s.id); });
       m = gm.addMarker({ el, lat: s.lat, lng: s.lng });
       spotMarkers.set(s.id, m);
@@ -384,8 +398,10 @@ function refreshSpotStyles() {
   for (const [id, m] of spotMarkers) {
     const el = m.getElement();
     const ll = m.getLngLat();
+    const far = !pos || distanceM(pos, { lat: ll.lat, lng: ll.lng }) > SPOT.useRadiusM;
     el.classList.toggle('used', spotRemainMs(id) > 0);
-    el.classList.toggle('far', !pos || distanceM(pos, { lat: ll.lat, lng: ll.lng }) > SPOT.useRadiusM);
+    el.classList.toggle('far', far);
+    el.classList.toggle('near', !far); // 近いと色が変わって速く回る
   }
 }
 

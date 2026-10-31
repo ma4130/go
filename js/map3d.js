@@ -7,19 +7,19 @@
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const THREE_URL = 'https://unpkg.com/three@0.160.0/build/three.module.js';
-const PITCH = 60;
-const ZOOM = 17.6;
+const PITCH = 66; // 低めのカメラで遠くまで見える
+const ZOOM = 18.1;
 
 // ゲームらしい色（オリジナル配色）
 const PALETTE = {
   day: {
-    bg: '#9fe0a0', land: '#a6e3a1', park: '#6fcf7f', water: '#59c3f0', road: '#fdf7d8',
-    roadCase: '#7cc38b', path: '#e8f5c8', building: '#dcd6f2', sky: '#8fd3ff', horizon: '#e3f6ff',
+    bg: '#b3eb78', land: '#aee77a', park: '#7fd76a', water: '#5fd0f5', road: '#fff3c4',
+    roadCase: '#8fcf6a', path: '#f4f9d0', building: '#ece7f8', sky: '#5fbfff', horizon: '#f4fcff',
     range: '#ffffff',
   },
   night: {
-    bg: '#24465c', land: '#284d63', park: '#1f5a57', water: '#173a78', road: '#6f86b8',
-    roadCase: '#2f5470', path: '#4d6a8c', building: '#3e4f7d', sky: '#0b1730', horizon: '#26406b',
+    bg: '#1f4a5e', land: '#225066', park: '#1c6058', water: '#1a3f86', road: '#7d95c9',
+    roadCase: '#2a5a72', path: '#58739a', building: '#46588c', sky: '#081530', horizon: '#2c4a7c',
     range: '#bfe6ff',
   },
 };
@@ -63,9 +63,18 @@ function applyGameStyle(map, pal, lite) {
         if (/water|river|stream|canal|ditch|drain/.test(id)) setP('line-color', pal.water);
         else if (/boundary|admin|ferry|aerialway/.test(id)) hide();
         else if (/rail|transit/.test(id)) setP('line-color', pal.roadCase);
-        else if (/casing|outline/.test(id)) setP('line-color', pal.roadCase);
-        else if (/path|foot|cycle|track|steps|pedestrian/.test(id)) setP('line-color', pal.path);
-        else setP('line-color', pal.road);
+        else if (/path|foot|cycle|track|steps|pedestrian/.test(id)) {
+          setP('line-color', pal.path);
+          setP('line-width', ['interpolate', ['exponential', 1.6], ['zoom'], 14, 1, 17, 3, 19, 8]);
+        } else if (/casing|outline/.test(id)) {
+          setP('line-color', pal.roadCase);
+          setP('line-width', ['interpolate', ['exponential', 1.6], ['zoom'], 14, 4, 17, 14, 19, 38]);
+        } else {
+          // アニメ調の太い道
+          setP('line-color', pal.road);
+          setP('line-width', ['interpolate', ['exponential', 1.6], ['zoom'], 14, 3, 17, 11, 19, 32]);
+          setP('line-opacity', 1);
+        }
         break;
       case 'symbol':
         hide(); // 文字やお店のアイコンは消してゲームらしく
@@ -106,7 +115,8 @@ function applyGameStyle(map, pal, lite) {
   if (map.getLayer('game-buildings')) map.setPaintProperty('game-buildings', 'fill-extrusion-color', pal.building);
 
   try {
-    map.setSky({ 'sky-color': pal.sky, 'horizon-color': pal.horizon, 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.6, 'fog-color': pal.horizon, 'fog-ground-blend': 0.2 });
+    // 空のグラデーションを強めに、遠くは霞ませる
+    map.setSky({ 'sky-color': pal.sky, 'horizon-color': pal.horizon, 'sky-horizon-blend': 0.9, 'horizon-fog-blend': 0.85, 'fog-color': pal.horizon, 'fog-ground-blend': 0.55 });
   } catch { /* 古い版では空の設定なし */ }
 
   if (map.getLayer('game-range-fill')) {
@@ -115,83 +125,138 @@ function applyGameStyle(map, pal, lite) {
   }
 }
 
-// ---------- 3Dの自分キャラ（オリジナルデザイン） ----------
+// ---------- 3Dの自分キャラ（オリジナルデザイン・頭大きめのデフォルメ） ----------
 function buildAvatar(THREE) {
   const g = new THREE.Group();
   const mat = (color) => new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide });
   const skin = mat(0xffd9b3);
   const jacket = mat(0x1fb5a5);
   const pants = mat(0x2b3a67);
+  const shoes = mat(0xffffff);
   const capM = mat(0xf2b705);
   const black = mat(0x222222);
+  const white = mat(0xffffff);
 
+  // くっきりした影
   const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.45, 24),
-    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.CircleGeometry(0.42, 28),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.38, side: THREE.DoubleSide, depthWrite: false }),
   );
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.01;
   g.add(shadow);
 
-  const legGeo = new THREE.CylinderGeometry(0.09, 0.08, 0.6, 10);
-  legGeo.translate(0, -0.3, 0); // 付け根で回るように
-  const legL = new THREE.Mesh(legGeo, pants);
-  const legR = new THREE.Mesh(legGeo, pants);
-  legL.position.set(-0.12, 0.62, 0);
-  legR.position.set(0.12, 0.62, 0);
-  g.add(legL, legR);
+  // 足元で広がる光の輪（2重）
+  const rings = [0, 1].map(() => {
+    const r = new THREE.Mesh(
+      new THREE.RingGeometry(0.9, 1.0, 48),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    r.rotation.x = -Math.PI / 2;
+    r.position.y = 0.02;
+    g.add(r);
+    return r;
+  });
 
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.62, 16), jacket);
-  body.position.y = 0.92;
-  g.add(body);
+  const legGeo = new THREE.CylinderGeometry(0.09, 0.08, 0.42, 10);
+  legGeo.translate(0, -0.21, 0);
+  const footGeo = new THREE.SphereGeometry(0.1, 10, 8);
+  footGeo.scale(1, 0.6, 1.4);
+  footGeo.translate(0, -0.42, 0.03);
+  const mkLeg = (x) => {
+    const leg = new THREE.Group();
+    leg.add(new THREE.Mesh(legGeo, pants), new THREE.Mesh(footGeo, shoes));
+    leg.position.set(x, 0.46, 0);
+    g.add(leg);
+    return leg;
+  };
+  const legL = mkLeg(-0.11);
+  const legR = mkLeg(0.11);
 
-  const armGeo = new THREE.CylinderGeometry(0.07, 0.065, 0.55, 10);
-  armGeo.translate(0, -0.27, 0);
-  const armL = new THREE.Mesh(armGeo, jacket);
-  const armR = new THREE.Mesh(armGeo, jacket);
-  armL.position.set(-0.33, 1.18, 0);
-  armR.position.set(0.33, 1.18, 0);
-  g.add(armL, armR);
+  const torso = new THREE.Group();
+  g.add(torso);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.27, 0.48, 18), jacket);
+  body.position.y = 0.7;
+  torso.add(body);
+  const zip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.4, 0.02), white);
+  zip.position.set(0, 0.7, 0.25);
+  torso.add(zip);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 16), skin);
-  head.position.y = 1.5;
-  g.add(head);
+  const armGeo = new THREE.CylinderGeometry(0.065, 0.06, 0.42, 10);
+  armGeo.translate(0, -0.21, 0);
+  const handGeo = new THREE.SphereGeometry(0.07, 10, 8);
+  handGeo.translate(0, -0.44, 0);
+  const mkArm = (x) => {
+    const arm = new THREE.Group();
+    arm.add(new THREE.Mesh(armGeo, jacket), new THREE.Mesh(handGeo, skin));
+    arm.position.set(x, 0.9, 0);
+    arm.rotation.z = x > 0 ? 0.12 : -0.12;
+    torso.add(arm);
+    return arm;
+  };
+  const armL = mkArm(-0.3);
+  const armR = mkArm(0.3);
 
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.285, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), capM);
-  cap.position.y = 1.55;
-  g.add(cap);
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 16, 1, false, -Math.PI / 2, Math.PI), capM);
-  brim.position.set(0, 1.56, 0.2);
-  g.add(brim);
+  // 頭（大きめ）。帽子・目と一緒に回して周りを見回す
+  const headG = new THREE.Group();
+  headG.position.y = 1.27;
+  torso.add(headG);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 24, 18), skin);
+  headG.add(head);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.375, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2.1), capM);
+  cap.position.y = 0.05;
+  headG.add(cap);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.035, 18, 1, false, -Math.PI / 2, Math.PI), capM);
+  brim.position.set(0, 0.07, 0.27);
+  headG.add(brim);
+  const eyeGeo = new THREE.SphereGeometry(0.05, 10, 10);
+  eyeGeo.scale(0.8, 1.2, 0.6);
+  const hiGeo = new THREE.SphereGeometry(0.015, 6, 6);
+  for (const x of [-0.12, 0.12]) {
+    const eye = new THREE.Mesh(eyeGeo, black);
+    eye.position.set(x, -0.03, 0.33);
+    const hi = new THREE.Mesh(hiGeo, white);
+    hi.position.set(x + 0.015, 0.0, 0.36);
+    headG.add(eye, hi);
+  }
+  const cheekGeo = new THREE.SphereGeometry(0.045, 8, 8);
+  cheekGeo.scale(1, 0.6, 0.4);
+  const cheekM = new THREE.MeshLambertMaterial({ color: 0xff9e9e, transparent: true, opacity: 0.7 });
+  for (const x of [-0.2, 0.2]) {
+    const c = new THREE.Mesh(cheekGeo, cheekM);
+    c.position.set(x, -0.11, 0.29);
+    headG.add(c);
+  }
 
-  const eyeGeo = new THREE.SphereGeometry(0.035, 8, 8);
-  const eyeL = new THREE.Mesh(eyeGeo, black);
-  const eyeR = new THREE.Mesh(eyeGeo, black);
-  eyeL.position.set(-0.09, 1.5, 0.25);
-  eyeR.position.set(0.09, 1.5, 0.25);
-  g.add(eyeL, eyeR);
-
-  g.userData = { legL, legR, armL, armR, body, head, cap, brim, eyeL, eyeR };
+  g.userData = { legL, legR, armL, armR, torso, headG, rings };
   return g;
 }
 
 function animateAvatar(g, t, moving) {
-  const { legL, legR, armL, armR } = g.userData;
-  const swing = moving ? Math.sin(t * 9) * 0.6 : 0;
+  const { legL, legR, armL, armR, torso, headG, rings } = g.userData;
+  const swing = moving ? Math.sin(t * 9) * 0.65 : 0;
   legL.rotation.x = swing;
   legR.rotation.x = -swing;
-  armL.rotation.x = -swing * 0.8;
-  armR.rotation.x = swing * 0.8;
-  const bob = moving ? Math.abs(Math.sin(t * 9)) * 0.05 : Math.sin(t * 2) * 0.015;
-  for (const k of ['body', 'head', 'cap', 'brim', 'eyeL', 'eyeR']) {
-    const m = g.userData[k];
-    if (m.userData.baseY == null) m.userData.baseY = m.position.y;
-    m.position.y = m.userData.baseY + bob;
+  armL.rotation.x = -swing * 0.9;
+  armR.rotation.x = swing * 0.9;
+  torso.position.y = moving ? Math.abs(Math.sin(t * 9)) * 0.05 : Math.sin(t * 2) * 0.012;
+
+  // 止まっているときは、ときどき左右を見回す
+  if (moving) {
+    headG.rotation.y *= 0.85;
+  } else {
+    const cycle = t % 7;
+    const target = cycle < 2.5 ? 0 : cycle < 4 ? 0.7 : cycle < 5.5 ? -0.7 : 0;
+    headG.rotation.y += (target - headG.rotation.y) * 0.06;
   }
-  for (const m of [armL, armR]) {
-    if (m.userData.baseY == null) m.userData.baseY = m.position.y;
-    m.position.y = m.userData.baseY + bob;
-  }
+
+  // 光の輪：広がりながら消えるのをくり返す
+  rings.forEach((r, i) => {
+    const p = ((t / 2.4) + i * 0.5) % 1;
+    const sc = 0.5 + p * 1.6;
+    r.scale.set(sc, sc, sc);
+    r.material.opacity = 0.55 * (1 - p);
+  });
 }
 
 function createAvatarLayer(THREE, getState) {
@@ -220,7 +285,7 @@ function createAvatarLayer(THREE, getState) {
       const mc = maplibregl.MercatorCoordinate.fromLngLat([st.pos.lng, st.pos.lat], 0);
       // 画面上でだいたい同じ大きさ（約110px）に見えるように、ズームに合わせて大きさを変える
       const mpp = (40075016.686 * Math.cos((st.pos.lat * Math.PI) / 180)) / (512 * 2 ** this.map.getZoom());
-      const meters = (110 * mpp) / 1.85;
+      const meters = (115 * mpp) / 1.65; // 画面上で約115pxの背の高さ
       const s = mc.meterInMercatorCoordinateUnits() * meters;
       const l = new THREE.Matrix4()
         .makeTranslation(mc.x, mc.y, mc.z)
