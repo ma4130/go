@@ -1,6 +1,6 @@
 // ゲーム本体（斜めの3D地図の画面）
 
-import { GAME_NAME, SPAWN, SPOT, SPEED_LIMIT_MS, DEFAULT_CENTER, XP } from './config.js';
+import { GAME_NAME, SPAWN, SPOT, SPEED_LIMIT_MS, BLOCK_WHEN_FAST, DEFAULT_CENTER, XP } from './config.js';
 import { getStore, isFirebaseConfigured } from './store.js';
 import { spawnsAround } from './spawn.js';
 import { CHARACTERS, getChar } from './characters.js';
@@ -248,7 +248,7 @@ function handlePosition(lat, lng, accuracy, speed, teleport) {
 // 速すぎる状態は10秒たつと自動で解除
 function updateFastBanner() {
   tooFast = Date.now() < tooFastUntil;
-  if (tooFast) showBanner('🚗 移動が速すぎます。乗り物に乗っているときは遊べません');
+  if (tooFast && BLOCK_WHEN_FAST) showBanner('🚗 移動が速すぎます。乗り物に乗っているときは遊べません');
   else if ($('banner').dataset.kind === 'fast') hideBanner();
 }
 
@@ -327,7 +327,7 @@ function showNearby() {
 
 async function onSpawnClick(s) {
   if (capturing) return;
-  if (tooFast) { toast('移動が速すぎるので捕まえられません'); return; }
+  if (tooFast && BLOCK_WHEN_FAST) { toast('移動が速すぎるので捕まえられません'); return; }
   const d = distanceM(pos, s);
   if (d > SPAWN.catchRadiusM) {
     toast(`${getChar(s.charId).name}：あと${Math.ceil(d - SPAWN.catchRadiusM)}m 近づいてね`);
@@ -428,7 +428,7 @@ async function onSpotClick(id) {
     toast(`${s.name}：あと${Math.ceil(d - SPOT.useRadiusM)}m 近づいてね`);
     return;
   }
-  if (tooFast) { toast('移動が速すぎるので使えません'); return; }
+  if (tooFast && BLOCK_WHEN_FAST) { toast('移動が速すぎるので使えません'); return; }
   const gain = randInt(SPOT.ballsMin, SPOT.ballsMax);
   user.balls += gain;
   user.xp = (user.xp || 0) + XP.spot;
