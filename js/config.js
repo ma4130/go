@@ -9,22 +9,31 @@ export const DEFAULT_CENTER = { lat: 35.681236, lng: 139.767125 };
 export const SPAWN = {
   cellDeg: 0.001,     // 地図を区切るマス目の大きさ（約100m）
   windowMin: 15,      // 何分ごとに出現が入れ替わるか
-  viewRadiusM: 200,   // 自分の周り何mのキャラを表示するか
-  catchRadiusM: 50,   // 何m以内なら捕まえられるか
-  revealRadiusM: 110, // これより遠いキャラは草むらが揺れるだけ（姿は見えない）
+  viewRadiusM: 250,   // 自分の周り何mのキャラを表示するか
+  catchRadiusM: 120,  // 何m以内なら捕まえられるか（姿が見えているキャラはそのまま捕まえられる）
+  revealRadiusM: 120, // これより遠いキャラは草むらが揺れるだけ（姿は見えない）
   chanceOne: 0.5,     // 1マスに1匹出る確率
   chanceTwo: 0.08,    // 1マスに2匹出る確率
 };
 
 // スポット
 export const SPOT = {
-  useRadiusM: 50,     // 何m以内なら使えるか
+  useRadiusM: 80,     // 何m以内なら使えるか
   cooldownMin: 5,     // 同じスポットを再び使えるまでの分数
   ballsMin: 3,
   ballsMax: 5,
 };
 
 export const START_BALLS = 20;
+
+// よびよせベル（使うとしばらくの間、自分の周りにキャラが多く出るアイテム）
+export const LURE = {
+  durationMin: 30,      // 効果が続く分数（使っている間にもう1つ使うと延長）
+  chanceOne: 0.85,      // 効果中、1マスに追加で1匹出る確率
+  chanceTwo: 0.3,       // 効果中、1マスに追加で2匹出る確率
+  startCount: 1,        // はじめに持っている数
+  spotDropChance: 0.15, // スポットで手に入る確率
+};
 
 // これより速く移動しているときは遊べない（乗り物対策）: 時速30km
 export const SPEED_LIMIT_MS = 30 / 3.6;

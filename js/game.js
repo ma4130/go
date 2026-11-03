@@ -1,6 +1,6 @@
 // ゲーム本体（斜めの3D地図の画面）
 
-import { GAME_NAME, SPAWN, SPOT, SPEED_LIMIT_MS, BLOCK_WHEN_FAST, DEFAULT_CENTER, XP } from './config.js';
+import { GAME_NAME, SPAWN, SPOT, LURE, SPEED_LIMIT_MS, BLOCK_WHEN_FAST, DEFAULT_CENTER, XP } from './config.js';
 import { getStore, isFirebaseConfigured } from './store.js';
 import { spawnsAround } from './spawn.js';
 import { CHARACTERS, getChar } from './characters.js';
@@ -82,6 +82,9 @@ async function main() {
     const q = pos ? `?lat=${pos.lat.toFixed(6)}&lng=${pos.lng.toFixed(6)}` : '';
     location.href = `spots.html${q}`;
   });
+  $('zoom-in-btn').addEventListener('click', () => gm.zoomBy(1));
+  $('zoom-out-btn').addEventListener('click', () => gm.zoomBy(-1));
+  updateLureChip();
   $('main-btn').addEventListener('click', showMainMenu);
   $('avatar-btn').addEventListener('click', showProfile);
   $('nearby-btn').addEventListener('click', showNearby);
@@ -146,6 +149,8 @@ async function login() {
 }
 
 function normalizeUser() {
+  if (user.lures == null) { user.lures = LURE.startCount; markDirty('lures'); }
+  if (user.lureUntil == null) user.lureUntil = 0;
   user.dex ||= {};
   user.spotCooldowns ||= {};
   user.recentSpawns ||= {};
@@ -267,7 +272,14 @@ function hideBanner() {
 // ---------- キャラの出現 ----------
 function refreshSpawns() {
   if (!pos || capturing) return;
-  const list = spawnsAround(pos.lat, pos.lng).filter((s) => !user.recentSpawns[s.id]);
+  const now = Date.now();
+  let all = spawnsAround(pos.lat, pos.lng, now);
+  if (lureActive()) {
+    all = all.concat(spawnsAround(pos.lat, pos.lng, now, {
+      salt: `bell-${user.name}`, chanceOne: LURE.chanceOne, chanceTwo: LURE.chanceTwo,
+    }));
+  }
+  const list = all.filter((s) => !user.recentSpawns[s.id]);
   const ids = new Set(list.map((s) => s.id));
   for (const [id, m] of spawnMarkers) {
     if (!ids.has(id)) { m.remove(); spawnMarkers.delete(id); }
@@ -433,13 +445,15 @@ async function onSpotClick(id) {
   user.balls += gain;
   user.xp = (user.xp || 0) + XP.spot;
   user.spotCooldowns[id] = Date.now();
-  markDirty('balls', 'xp', 'spotCooldowns');
+  const gotBell = Math.random() < LURE.spotDropChance;
+  if (gotBell) user.lures = (user.lures || 0) + 1;
+  markDirty('balls', 'xp', 'spotCooldowns', 'lures');
   updateHud();
   refreshSpotStyles();
   const el = spotMarkers.get(id)?.getElement();
   el?.classList.add('spin');
   setTimeout(() => el?.classList.remove('spin'), 900);
-  toast(`${s.name}：ボールを${gain}こ手に入れた！ +${XP.spot}XP`);
+  toast(`${s.name}：ボールを${gain}こ${gotBell ? '、🔔よびよせベルを1こ' : ''}手に入れた！ +${XP.spot}XP`);
   await flush(true);
 }
 
@@ -478,12 +492,52 @@ function showDex() {
 }
 
 function showBag() {
+  const active = lureActive();
   showModal({
     title: 'バッグ',
-    html: `<ul class="bag-list"><li><span class="mini-ball"></span><span class="nm">ボール</span><b>×${user.balls}</b></li></ul>
-      <p class="sub">スポットに行くとボールがもらえるよ</p>`,
+    html: `<ul class="bag-list">
+        <li><span class="mini-ball"></span><span class="nm">ボール</span><b>×${user.balls}</b></li>
+        <li><span class="bell-icon">🔔</span><span class="nm">よびよせベル<br><small class="sub">${LURE.durationMin}分間、まわりにキャラがたくさん出る${active ? `（いま効果中・あと${lureRemainMin()}分）` : ''}</small></span>
+          <b>×${user.lures || 0}</b><button class="use-bell primary" ${user.lures > 0 ? '' : 'disabled'}>使う</button></li>
+      </ul>
+      <p class="sub">スポットに行くとボールがもらえるよ。ときどきよびよせベルも見つかるよ</p>`,
     buttons: [{ label: 'とじる', value: true, primary: true }],
+    onOpen: (el, close) => {
+      el.querySelector('.use-bell')?.addEventListener('click', () => { close(true); useLure(); });
+    },
   });
+}
+
+// ---------- よびよせベル ----------
+function lureActive() {
+  return (user?.lureUntil || 0) > Date.now();
+}
+function lureRemainMin() {
+  return Math.max(0, Math.ceil(((user.lureUntil || 0) - Date.now()) / 60000));
+}
+async function useLure() {
+  if (!(user.lures > 0)) { toast('よびよせベルを持っていません'); return; }
+  const wasActive = lureActive();
+  user.lures -= 1;
+  // 効果中に使うと延長
+  user.lureUntil = Math.max(Date.now(), user.lureUntil || 0) + LURE.durationMin * 60000;
+  markDirty('lures', 'lureUntil');
+  await flush(true);
+  refreshSpawns();
+  updateLureChip();
+  toast(wasActive ? `🔔 効果をのばした！ あと${lureRemainMin()}分` : `🔔 よびよせベルを鳴らした！ ${LURE.durationMin}分間キャラが出やすくなるよ`, 3500);
+}
+function updateLureChip() {
+  const chip = $('lure-chip');
+  if (!chip) return;
+  if (lureActive()) {
+    chip.textContent = `🔔 よびよせ中 あと${lureRemainMin()}分`;
+    chip.classList.remove('hidden');
+    document.body.classList.add('lure-on');
+  } else {
+    chip.classList.add('hidden');
+    document.body.classList.remove('lure-on');
+  }
 }
 
 async function showSettings() {
@@ -560,6 +614,7 @@ async function claimGifts() {
 
 let tickCount = 0;
 function tick() {
+  updateLureChip();
   tickCount += 1;
   if (tickCount % 6 === 0 && !capturing) claimGifts(); // 30秒ごと
   updateFastBanner();

@@ -24,6 +24,11 @@ const PALETTE = {
   },
 };
 
+// ズームに合わせた目印の大きさ（ふつうのズームで1。引くと小さく、寄ると大きく）
+export function markerScale(zoom) {
+  return Math.max(0.45, Math.min(1.5, 2 ** ((zoom - ZOOM) * 0.6)));
+}
+
 export function isNight(d = new Date()) {
   const h = d.getHours();
   return h < 6 || h >= 18;
@@ -285,7 +290,7 @@ function createAvatarLayer(THREE, getState) {
       const mc = maplibregl.MercatorCoordinate.fromLngLat([st.pos.lng, st.pos.lat], 0);
       // 画面上でだいたい同じ大きさ（約110px）に見えるように、ズームに合わせて大きさを変える
       const mpp = (40075016.686 * Math.cos((st.pos.lat * Math.PI) / 180)) / (512 * 2 ** this.map.getZoom());
-      const meters = (115 * mpp) / 1.65; // 画面上で約115pxの背の高さ
+      const meters = (115 * markerScale(this.map.getZoom()) * mpp) / 1.65; // ふつうのズームで約115pxの背の高さ
       const s = mc.meterInMercatorCoordinateUnits() * meters;
       const l = new THREE.Matrix4()
         .makeTranslation(mc.x, mc.y, mc.z)
@@ -313,8 +318,8 @@ export async function createGameMap({ container, center, lite = false, onMapClic
     zoom: ZOOM,
     pitch: lite ? 0 : PITCH,
     bearing: 0,
-    minZoom: 15.5,
-    maxZoom: 19.5,
+    minZoom: 14,
+    maxZoom: 20,
     maxPitch: 70,
     dragPan: false,
     dragRotate: false,
@@ -324,6 +329,10 @@ export async function createGameMap({ container, center, lite = false, onMapClic
     attributionControl: { compact: true },
   });
   map.touchZoomRotate.enable({ around: 'center' });
+  // ズームに合わせて、キャラやスポットの目印の大きさを変える
+  const applyScale = () => document.documentElement.style.setProperty('--mk', String(markerScale(map.getZoom())));
+  map.on('zoom', applyScale);
+  applyScale();
   map.scrollZoom.enable({ around: 'center' });
   document.body.classList.toggle('night', night);
 
@@ -466,6 +475,11 @@ export async function createGameMap({ container, center, lite = false, onMapClic
       }
     },
     setRangeRadius(r) { rangeRadius = r; },
+    // ズーム（自分を中心に）
+    zoomBy(delta) {
+      const z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), map.getZoom() + delta));
+      map.easeTo({ zoom: z, duration: 300 });
+    },
     // 地図の上に置く目印（キャラ・スポット）
     addMarker({ el, lat, lng }) {
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([lng, lat]).addTo(map);
