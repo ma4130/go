@@ -28,6 +28,10 @@ export const START_BALLS = 20;
 
 // これより速く移動しているときは遊べない（乗り物対策）: 時速30km
 export const SPEED_LIMIT_MS = 30 / 3.6;
+// 速く移動しているとき（乗り物など）に、捕まえたりスポットを使えなくするか
+//   false: 使える（今の設定） / true: 使えなくして「移動が速すぎます」と表示する
+// どちらの場合も、速く移動した分は「歩いた距離」には数えない
+export const BLOCK_WHEN_FAST = false;
 
 // レア度ごとの設定
 //   weight: 出やすさ / baseCatch: 基本の捕まえやすさ / flee: 逃げる確率
