@@ -8,6 +8,8 @@ export function newUserData(name, now = Date.now()) {
     lastSeenAt: now,
     balls: START_BALLS,
     giftBalls: 0,       // 管理画面から届いた、受け取り待ちのボール
+    lures: 1,           // よびよせベルの数
+    lureUntil: 0,       // よびよせベルの効果が切れる時刻
     xp: 0,
     walkedM: 0,
     caughtCount: 0,

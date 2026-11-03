@@ -40,7 +40,11 @@ export function currentWindow(now = Date.now()) {
 }
 
 // lat,lng の周りに出ているキャラの一覧を返す
-export function spawnsAround(lat, lng, now = Date.now()) {
+//   opts.salt を付けると、いつもとは別の出現（よびよせベルの追加分など）になる
+export function spawnsAround(lat, lng, now = Date.now(), opts = {}) {
+  const salt = opts.salt || '';
+  const chanceOne = opts.chanceOne ?? SPAWN.chanceOne;
+  const chanceTwo = opts.chanceTwo ?? SPAWN.chanceTwo;
   const w = currentWindow(now);
   const d = SPAWN.cellDeg;
   const cx = Math.floor(lng / d);
@@ -51,12 +55,12 @@ export function spawnsAround(lat, lng, now = Date.now()) {
     for (let dx = -range; dx <= range; dx++) {
       const x = cx + dx;
       const y = cy + dy;
-      const rng = mulberry32(hash(`${x}:${y}:${w}`));
+      const rng = mulberry32(hash(`${salt}${x}:${y}:${w}`));
       const r = rng();
-      const n = r < SPAWN.chanceTwo ? 2 : r < SPAWN.chanceOne ? 1 : 0;
+      const n = r < chanceTwo ? 2 : r < chanceOne ? 1 : 0;
       for (let i = 0; i < n; i++) {
         const s = {
-          id: `${x}_${y}_${w}_${i}`,
+          id: `${salt ? `${salt}_` : ''}${x}_${y}_${w}_${i}`,
           lat: (y + rng()) * d,
           lng: (x + rng()) * d,
           charId: pickChar(rng).id,

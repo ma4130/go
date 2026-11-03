@@ -176,6 +176,7 @@ async function showDetail(name) {
       <h3>持っているアイテム</h3>
       <table class="info-table">
         <tr><th>ボール</th><td>${u.balls ?? 0}こ</td></tr>
+        <tr><th>よびよせベル</th><td>${u.lures ?? 0}こ${(u.lureUntil || 0) > Date.now() ? '（効果中）' : ''}</td></tr>
         <tr><th>受け取り待ち</th><td>${u.giftBalls || 0}こ <small class="sub">（ゲームを開くと受け取る）</small></td></tr>
       </table>
       <div class="actions" style="margin-top:8px"><button id="act-give" class="primary">🎁 ボールを配る</button></div>
